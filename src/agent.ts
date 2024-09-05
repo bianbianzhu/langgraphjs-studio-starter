@@ -1,18 +1,41 @@
-import type { AIMessage } from "@langchain/core/messages";
+import {
+  SystemMessage,
+  type AIMessage,
+  type BaseMessage,
+} from "@langchain/core/messages";
 import { TavilySearchResults } from "@langchain/community/tools/tavily_search";
 import { ChatOpenAI } from "@langchain/openai";
 
-import { MessagesAnnotation, StateGraph } from "@langchain/langgraph";
+import {
+  Annotation,
+  MessagesAnnotation,
+  messagesStateReducer,
+  StateGraph,
+} from "@langchain/langgraph";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 
-const tools = [
-  new TavilySearchResults({ maxResults: 3, }),
-];
+// When running the graph in the langgraph studio, you don't need to have the following environment variables:
+// - LANGCHAIN_API_KEY
+// - LANGCHAIN_TRACING_V2=true
+// - LANGCHAIN_CALLBACKS_BACKGROUND=true
+
+// ONLY NEED:
+// - OPENAI_API_KEY (if you are using OpenAI)
+// - TAVILY_API_KEY (if you are using Tavily)
+// ...
+
+const tools = [new TavilySearchResults({ maxResults: 3 })];
+
+// The nature of MessagesAnnotation:
+// const MessagesAnnotation = Annotation.Root({
+//   messages: Annotation<BaseMessage[]>({
+//     default: () => [new SystemMessage("Hello! How can I help you today?")],
+//     reducer: messagesStateReducer,
+//   }),
+// });
 
 // Define the function that calls the model
-async function callModel(
-  state: typeof MessagesAnnotation.State,
-) {
+async function callModel(state: typeof MessagesAnnotation.State) {
   /**
    * Call the LLM powering our agent.
    * Feel free to customize the prompt, model, and other logic!
@@ -24,9 +47,9 @@ async function callModel(
   const response = await model.invoke([
     {
       role: "system",
-      content: `You are a helpful assistant. The current date is ${new Date().getTime()}.`
+      content: `You are a helpful assistant. The current date is ${new Date().getTime()}.`,
     },
-    ...state.messages
+    ...state.messages,
   ]);
 
   // MessagesAnnotation supports returning a single message or array of messages
@@ -64,10 +87,7 @@ const workflow = new StateGraph(MessagesAnnotation)
     routeModelOutput,
     // List of the possible destinations the conditional edge can route to.
     // Required for conditional edges to properly render the graph in Studio
-    [
-      "tools",
-      "__end__"
-    ],
+    ["tools", "__end__"]
   )
   // This means that after `tools` is called, `callModel` node is called next.
   .addEdge("tools", "callModel");
@@ -77,4 +97,8 @@ const workflow = new StateGraph(MessagesAnnotation)
 export const graph = workflow.compile({
   // if you want to update the state before calling the tools
   // interruptBefore: [],
+  // ================
+  // The Langgraph Studio/Cloud API will automatically add a checkpointer
+  // only need to provide the checkpointer if running locally
+  // checkpointer: new MemorySaver()
 });
