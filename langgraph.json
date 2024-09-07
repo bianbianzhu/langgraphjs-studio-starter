@@ -3,7 +3,8 @@
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "agent": "./src/agent.ts:graph"
+    "agent": "./src/agent.ts:graph",
+    "human_in_the_loop": "./src/human-in-the-loop.ts:app"
   },
   "env": ".env"
 }
