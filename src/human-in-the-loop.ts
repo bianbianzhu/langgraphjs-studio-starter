@@ -163,7 +163,7 @@ function toolRoute(
   if (
     lastMessage === undefined ||
     !isAIMessage(lastMessage) ||
-    !lastMessage.tool_calls ||
+    !Array.isArray(lastMessage.tool_calls) ||
     lastMessage.tool_calls.length <= 0
   ) {
     return END;
@@ -191,16 +191,16 @@ async function requestAuthorization(
   if (authorizationState === AuthorizationState.Idle) {
     const generatedCode = generateRandomSixDigitCode();
 
-    const sendSMS = traceable(callTwilio, {
-      name: "Twilio SMS",
-      run_type: "tool",
-    });
+    // const sendSMS = traceable(callTwilio, {
+    //   name: "Twilio SMS",
+    //   run_type: "tool",
+    // });
 
-    try {
-      await sendSMS(generatedCode, process.env);
-    } catch (err) {
-      console.error(err);
-    }
+    // try {
+    //   await sendSMS(generatedCode, process.env);
+    // } catch (err) {
+    //   console.error(err);
+    // }
 
     return {
       authorizationState: AuthorizationState.Authorizing,
@@ -227,6 +227,7 @@ async function confirmAuthorization(
 ): Promise<Partial<GraphState>> {
   const { generatedCode, providedCode, authorizationFailedAttemptCount } =
     state;
+
   const isAuthorized = generatedCode === providedCode;
 
   return isAuthorized
