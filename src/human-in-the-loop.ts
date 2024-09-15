@@ -191,6 +191,7 @@ async function requestAuthorization(
   if (authorizationState === AuthorizationState.Idle) {
     const generatedCode = generateRandomSixDigitCode();
 
+    // >>> SMS service - Enable when you want to spend credits <<<
     // const sendSMS = traceable(callTwilio, {
     //   name: "Twilio SMS",
     //   run_type: "tool",
