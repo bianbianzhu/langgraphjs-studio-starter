@@ -5,7 +5,8 @@
   "graphs": {
     "agent": "./src/agent.ts:graph",
     "human_in_the_loop": "./src/human-in-the-loop.ts:app",
-    "human_in_the_loop_basic": "./src/human-in-the-loop-basic.ts:app"
+    "human_in_the_loop_basic": "./src/human-in-the-loop-basic.ts:app",
+    "node_interrupt": "./src/node-interrupt.ts:app"
   },
   "env": ".env"
 }

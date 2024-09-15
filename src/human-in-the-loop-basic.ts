@@ -1,10 +1,12 @@
-import { isAIMessage } from "@langchain/core/messages";
+import { HumanMessage, isAIMessage } from "@langchain/core/messages";
+import { RunnableConfig } from "@langchain/core/runnables";
 import { tool } from "@langchain/core/tools";
 import {
   Annotation,
   END,
   MemorySaver,
   MessagesAnnotation,
+  NodeInterrupt,
   START,
   StateGraph,
 } from "@langchain/langgraph";
@@ -63,6 +65,7 @@ async function checkAuthorization(
   return {};
 }
 
+// Cannot use prebuilt `toolConditions` as it goes to `tools` node or END
 function toolsConditionWithAuthorization(
   state: GraphState
 ): "check_authorization" | typeof END {
@@ -125,7 +128,8 @@ const workflow = stateGraph
   .addEdge("tools", "call_model");
 
 export const app = workflow.compile({
-  interruptBefore: ["check_authorization"],
+  // checkpointer,
+  interruptBefore: ["check_authorization"], // this can be replaced by dynamic interrupt
 });
 
 // Incorrect way:
@@ -140,3 +144,81 @@ export const app = workflow.compile({
 // export const app = stateGraph.compile({
 //   interruptBefore: ["tools"], // Type '"tools"' is not assignable to type '"__start__"'.
 // });
+
+async function main() {
+  console.log("============================");
+  const config: RunnableConfig = {
+    configurable: {
+      thread_id: "refunder",
+    },
+  };
+
+  const res1 = await app.stream(
+    {
+      messages: [new HumanMessage("I want to have a refund for order ID 1234")],
+    },
+    {
+      ...config,
+      streamMode: "updates" as const, // why as const?
+    }
+  );
+
+  for await (const event of res1) {
+    const key = Object.keys(event)[0];
+    if (key) {
+      console.log(`Event: ${key}\n`);
+    }
+  }
+
+  console.log("===== Interrupting before check_authorization =====");
+
+  console.log(
+    "---refundAuthorized value before state update---",
+    (await app.getState(config)).values.refundAuthorized
+  );
+
+  await app.updateState(config, { refundAuthorized: true });
+
+  console.log(
+    "---refundAuthorized value after state update---",
+    (await app.getState(config)).values.refundAuthorized
+  );
+
+  console.log("===== Resuming after state update =====");
+  const res2 = await app.stream(null, {
+    ...config,
+    streamMode: "updates" as const,
+  });
+
+  for await (const event of res2) {
+    logEvent(event);
+  }
+}
+
+// Must comment when using langgraph studio
+// main();
+
+export function logEvent(event: Record<string, any>) {
+  const key = Object.keys(event)[0];
+  if (key) {
+    console.log(`Event: ${key}`);
+    if (Array.isArray(event[key].messages)) {
+      const lastMsg = event[key].messages[event[key].messages.length - 1];
+      console.log(
+        {
+          role: lastMsg._getType(),
+          content: lastMsg.content,
+        },
+        "\n"
+      );
+    } else {
+      console.log(
+        {
+          role: event[key].messages._getType(),
+          content: event[key].messages.content,
+        },
+        "\n"
+      );
+    }
+  }
+}
